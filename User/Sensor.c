@@ -1,0 +1,150 @@
+
+#include "stm32f10x.h"
+#include "Sensor.h"
+
+
+// 卡口传感器 GPIO 端口和引脚定义
+#define GATE_SEN_GPIO		GPIOC
+#define GATE_SEN_GPIO_PIN	GPIO_Pin_7
+
+// 后盖门传感器 GPIO 端口和引脚定义
+#define REAR_COVER_SEN_GPIO		GPIOB
+#define REAR_COVER_SEN_GPIO_PIN	GPIO_Pin_12
+
+// 凸轮传感器 GPIO 端口和引脚定义
+#define CAM_SEN_GPIO		GPIOB
+#define CAM_SEN_GPIO_PIN	GPIO_Pin_13
+
+
+// 74HC165 GPIO 端口和引脚定义
+#define U74HC165_CLK_GPIO		GPIOB
+#define U74HC165_CLK_GPIO_PIN	GPIO_Pin_15
+
+#define U74HC165_Q7_GPIO		GPIOC
+#define U74HC165_Q7_GPIO_PIN	GPIO_Pin_6
+
+#define U74HC165_SHLD_GPIO		GPIOB
+#define U74HC165_SHLD_GPIO_PIN	GPIO_Pin_14
+
+
+/*-------------------------------------------
+** 私有函数，向前声明
+---------------------------------------------*/
+
+static void U74HC165_SetNoChange(void);
+static uint16_t U74HC165_Read(void);
+
+
+/*-------------------------------------------
+** 公共函数
+---------------------------------------------*/
+
+void Sensors_Configuration(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct;
+
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB
+                           | RCC_APB2Periph_GPIOC, ENABLE);
+
+    // 配置卡口传感器 GPIO
+    GPIO_InitStruct.GPIO_Pin = GATE_SEN_GPIO_PIN;
+    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_IPU;
+    GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GATE_SEN_GPIO, &GPIO_InitStruct);
+
+    // 配置后盖门传感器 GPIO
+    GPIO_InitStruct.GPIO_Pin = REAR_COVER_SEN_GPIO_PIN;
+    GPIO_Init(REAR_COVER_SEN_GPIO, &GPIO_InitStruct);
+
+    // 配置凸轮传感器 GPIO
+    GPIO_InitStruct.GPIO_Pin = CAM_SEN_GPIO_PIN;
+    GPIO_Init(CAM_SEN_GPIO, &GPIO_InitStruct);
+
+    // 74HC165
+    GPIO_InitStruct.GPIO_Pin = U74HC165_Q7_GPIO_PIN;
+    GPIO_Init(U74HC165_Q7_GPIO, &GPIO_InitStruct);
+
+    GPIO_InitStruct.GPIO_Pin = U74HC165_SHLD_GPIO_PIN;
+    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(U74HC165_SHLD_GPIO, &GPIO_InitStruct);
+
+    GPIO_InitStruct.GPIO_Pin = U74HC165_CLK_GPIO_PIN;
+    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_Init(U74HC165_CLK_GPIO, &GPIO_InitStruct);
+
+    U74HC165_SetNoChange();
+}
+
+
+
+uint16_t Sensor_Read(uint16_t which)
+{
+    uint16_t data = 0;
+
+    if (which & SEN_GATE)
+        data |= GPIO_ReadInputDataBit(GATE_SEN_GPIO, GATE_SEN_GPIO_PIN) << 11;
+
+    if (which & SEN_REAR_COVER)
+        data |= GPIO_ReadInputDataBit(REAR_COVER_SEN_GPIO, REAR_COVER_SEN_GPIO_PIN) << 10;
+
+    if (which & SEN_CAM)
+        data |= GPIO_ReadInputDataBit(CAM_SEN_GPIO, CAM_SEN_GPIO_PIN) << 9;
+
+    if (which & 0x1FF)
+        data |= (U74HC165_Read() & which);
+
+    return data;
+}
+
+
+
+void U74HC165_SetNoChange(void)
+{
+    GPIO_SetBits(U74HC165_SHLD_GPIO, U74HC165_SHLD_GPIO_PIN);
+    GPIO_SetBits(U74HC165_CLK_GPIO, U74HC165_CLK_GPIO_PIN);
+}
+
+
+
+static __forceinline void delay(void)
+{
+    for (int i = 0; i < 100; i++);
+}
+
+
+uint16_t U74HC165_Read(void)
+{
+    uint16_t data = 0;
+
+    // 置 SH/LD 为低电平
+    GPIO_ResetBits(U74HC165_SHLD_GPIO, U74HC165_SHLD_GPIO_PIN);
+
+    // 延时，等待数据加载到内部移位寄存器
+    delay();
+
+    // 置 SH/LD 为高电平
+    GPIO_SetBits(U74HC165_SHLD_GPIO, U74HC165_SHLD_GPIO_PIN);
+
+    // 读 Q7
+    data = GPIO_ReadInputDataBit(U74HC165_Q7_GPIO, U74HC165_Q7_GPIO_PIN);
+
+    // 将移位寄存器里的数据从Q7引脚串行输出
+    for (int i = 0; i < 8; i++)
+    {
+        // 制造一次上升沿
+        GPIO_ResetBits(U74HC165_CLK_GPIO, U74HC165_CLK_GPIO_PIN);
+        delay();
+        GPIO_SetBits(U74HC165_CLK_GPIO, U74HC165_CLK_GPIO_PIN);
+        delay();
+
+        data <<= 1;
+        data |= GPIO_ReadInputDataBit(U74HC165_Q7_GPIO, U74HC165_Q7_GPIO_PIN);
+
+        delay();
+    }
+
+    U74HC165_SetNoChange();
+
+    return data;
+}
+
