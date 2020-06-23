@@ -11,12 +11,12 @@ typedef enum {
 	LED_SLOT3,
 	LED_SLOT2,
 	LED_SLOT1,
-	LED1,
-	LED2,
+	LED_RED,
+	LED_GREEN,
 	NUM_LEDs
 } LEDType;
 
-void LEDs_Configuration(void);
+void LEDs_Init(void);
 
 void LED_On(LEDType type);
 void LED_Off(LEDType type);

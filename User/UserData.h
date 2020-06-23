@@ -25,17 +25,11 @@
 
 // 卡片信息
 typedef struct {
-	uint8_t valid;	// 卡号及身份信息是否有效 (4字节, RTL.h)
+	uint8_t valid;	// 卡号及身份信息是否有效
 	uint8_t cardnum[SZ_CARD_NUM]; // 卡号
 	uint8_t idinfo[SZ_ID_INFO];	// 身份信息
 	uint8_t reserved[3];
-} CardInfoA;
-
-
-typedef struct {
-	uint8_t cardnum[SZ_CARD_NUM]; // 卡号
-	uint8_t idinfo[SZ_ID_INFO];	// 身份信息
-} CardInfoB;
+} CardInfo;
 
 
 typedef struct {
@@ -58,18 +52,14 @@ BOOL InitUserDataROM(void);
 
 BOOL ProgramDefaultControlParameters(void);
 BOOL ProgrmaControlParameters(ControlParameters *cp);
-BOOL ProgramCardInfoA(int slotNum, CardInfoA *cardInfo);
-BOOL ProgramSlotsFunc(uint16_t slotsFunc[NUM_RCM_SLOTS]);
+BOOL ProgramCardInfoSlot(int slotNum, CardInfo *cardInfo);
+BOOL ProgramSlotSettings(uint16_t slotsFunc[NUM_RCM_SLOTS]);
 BOOL ProgramDeviceInfo(uint8_t deviceInfo[SZ_DEVICE_INFO]);
 BOOL ProgramRetainCount(int retainCount);
 
-BOOL ClearCardInfoA(int slotNum);
-BOOL CleanCardInfoB(int index);
-
 BOOL ReadControlParameters(ControlParameters *cp);
-BOOL ReadCardInfoA(int slotNum, CardInfoA *cardInfo);
-BOOL ReadCardInfoB(int index, CardInfoB *cardInfo);
-BOOL ReadSlotsFunc(uint16_t slotsFunc[NUM_RCM_SLOTS]);
+BOOL ReadCardInfoSlot(int slotNum, CardInfo *cardInfo);
+BOOL ReadSlotSettings(uint16_t slotsFunc[NUM_RCM_SLOTS]);
 BOOL ReadDeviceInfo(uint8_t deviceInfo[SZ_DEVICE_INFO]);
 BOOL ReadRetainCount(int *retainCount);
 

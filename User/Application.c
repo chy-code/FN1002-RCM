@@ -13,10 +13,11 @@
 #include "Sensor.h"
 #include "Stepper.h"
 #include "Button.h"
+#include "IWDG.h"
+
 
 #define STEPS_PER_REV	1600	// 步进电机转一圈的步数
 #define MAX_STEPS_FOR_LIFTING	( STEPS_PER_REV * 30 )
-#define MAX_STEPS_FOR_MOVE	(STEPS_PER_REV * 20)
 
 
 // 任务优先级定义
@@ -33,7 +34,7 @@
 // 在执行动作时更新
 AppStatus _appStatus =
 {
-    DEVICE_BUSY, SLOT_INIT_POS, 0, __FALSE, __FALSE, __FALSE
+    DEVICE_IDLE, SLOT_INIT_POS, 0, __FALSE, __FALSE, __FALSE
 };
 
 // 引用_appStatus, 用于外部访问. 在 command.c 及 cu.c 中使用
@@ -41,7 +42,7 @@ const AppStatus * const c_appStatusRef =
     (const AppStatus*)&_appStatus;
 
 
-// 传感器数据. 在 Task_Idle 中更新
+// 传感器数据. 在 IdleTask 中更新
 SensorData _sensorData = { 0 };
 
 // 引用 _sensorData, 用于外部访问. 在 command.c 及 cu.c 中使用
@@ -57,7 +58,7 @@ const VersionData c_verData =
     "vF200613.1"
 };
 
-// 临时变量, 在 Task_ResetDevice 和 Task_MoveCard 中使用.
+// 临时变量, 在 ResetDeviceTask 和 MoveCardTask 中使用.
 const uint16_t _cSlotSenFlags[] =
 {
     SEN_SLOT1, SEN_SLOT2, SEN_SLOT3, SEN_SLOT4, SEN_SLOT5
@@ -75,14 +76,16 @@ static OS_SEM _sem_testFinished;
 /*------------------------------------------------------------------
 * 函数声明
 *------------------------------------------------------------------*/
-__task void Task_Init(void);
-__task void Task_Comm(void);
-__task void Task_Idle(void);
-__task void Task_ResetDevice(void);
-__task void Task_SelectSlot(void *argv);
-__task void Task_MoveCard(void *argv);
-__task void Task_PerformanceTest(void *argv);
+__task void InitTask(void);
+__task void CommunicationTask(void);
+__task void IdleTask(void);
+__task void ResetDeviceTask(void);
+__task void SelectSlotTask(void *argv);
+__task void MoveCardTask(void *argv);
+__task void PerformanceTestTask(void *argv);
 
+void UpdateSensorData(void);
+int ResetCam(Direction dir);
 int SetStackToTop(void);
 int SetStackToBottom(void);
 int PositionSlot(int curSlot, int targetSlot);
@@ -93,25 +96,26 @@ int PositionSlot(int curSlot, int targetSlot);
 *------------------------------------------------------------------*/
 int main()
 {
-	NVIC_SetVectorTable(NVIC_VectTab_FLASH, 0X4000);
-	
-    LEDs_Configuration();
-    Sensors_Configuration();
-    Steppers_Configuration();
-    USART1_Configuration();
-	
-	EnableResetButton(); // 使能复位按键, 当按下时复位
-	
+    NVIC_SetVectorTable(NVIC_VectTab_FLASH, 0x4000);
+
+    USART1_Init(38400, USART_Parity_No);
+
+    LEDs_Init();
+    Sensors_Init();
+    Steppers_Init();
+    ResetButton_Enable(); // 使能复位按键, 当按下时复位
+    IWDG_Init(IWDG_PRE_CYCLE_6P4, 1562); // 喂狗间隔 6.4ms * 1562 = 10s
+
     InitUserDataROM();
 
-    os_sys_init(Task_Init);
+    os_sys_init(InitTask);
 }
 
 
 /*------------------------------------------------------------------
 * 初始化任务
 *------------------------------------------------------------------*/
-__task void Task_Init(void)
+__task void InitTask(void)
 {
     os_tsk_prio_self(0xff); // 提升当前任务最高优先级
     usbd_init();	// 初始化 USB 库
@@ -119,8 +123,8 @@ __task void Task_Init(void)
     os_tsk_prio_self(1); // 降低当前任务优先级
 
     // 创建 Idle 和通信任务
-    os_tsk_create(Task_Idle, PRIO_IDLE);
-    os_tsk_create(Task_Comm, PRIO_NORMAL);
+    os_tsk_create(IdleTask, PRIO_IDLE);
+    os_tsk_create(CommunicationTask, PRIO_NORMAL);
 
     // 复位设备
     StartResetDevice(__FALSE);
@@ -132,14 +136,18 @@ __task void Task_Init(void)
 /*------------------------------------------------------------------
 * 通信任务
 *------------------------------------------------------------------*/
-__task void Task_Comm(void)
+__task void CommunicationTask(void)
 {
     for (;;)
     {
         if (WaitForMessage())
+		{
             HandleCurrentMessage();
+		}
         else
+		{
             os_tsk_pass();
+		}
     }
 }
 
@@ -148,7 +156,7 @@ __task void Task_Comm(void)
 * 空闲任务
 *------------------------------------------------------------------*/
 
-__task void Task_Idle(void)
+__task void IdleTask(void)
 {
     const LEDType leds[] =
     {
@@ -160,7 +168,7 @@ __task void Task_Idle(void)
     for (;;)
     {
         t1 = os_time_get();
-        if (t1 - t0 > 1500)
+        if (t1 - t0 > 1000)
         {
             UpdateSensorData();
 
@@ -186,9 +194,10 @@ __task void Task_Idle(void)
         }
 
 
-        LED_ToggleState(LED2);
+        LED_ToggleState(LED_GREEN);
+		IWDG_Feed();
+		
         os_dly_wait(500);
-
     }
 }
 
@@ -197,18 +206,20 @@ __task void Task_Idle(void)
 * 复位设备任务
 *------------------------------------------------------------------*/
 
-__task void Task_ResetDevice(void)
+__task void ResetDeviceTask(void)
 {
     int ret = 0;
     uint16_t prevVal, curVal;
 
+	 _appStatus.deviceStat = DEVICE_BUSY;
     curVal = Sensor_Read(SEN_GATE);
+	
     if (curVal) // 进卡口处有卡
     {
         prevVal = Sensor_Read(SEN_SLOTS); // 获取所有卡槽的状态
 		
 		// 启动步进电机
-        Stepper_Start(STEPPER_IN_OUT, DIR_BACKWARD_OR_DOWN, MAX_STEPS_FOR_MOVE);
+        Stepper_Start(STEPPER_IN_OUT, DIR_BACKWARD_OR_DOWN, STEPS_PER_REV * 20);
 
         while (1)
         {
@@ -233,20 +244,26 @@ __task void Task_ResetDevice(void)
                 ret = ERR_CARD_JAM;
                 goto END;
             }
+			
+			os_dly_wait(50);
         }
     }
 
 NEXT_STEP:
-	curVal = Sensor_Read(SEN_TOP);
-	if (!curVal)
+	ret = ResetCam(DIR_BACKWARD_OR_DOWN);
+	if (ret == 0)
 	{
-		ret = SetStackToTop();
-	}
-	else
-	{
-		ret = SetStackToBottom();
-		if (ret == 0)
+		curVal = Sensor_Read(SEN_TOP);
+		if (!curVal)
+		{
 			ret = SetStackToTop();
+		}
+		else
+		{
+			ret = SetStackToBottom();
+			if (ret == 0)
+				ret = SetStackToTop();
+		}
 	}
 
 END:
@@ -274,12 +291,15 @@ END:
 * argv: 卡槽号 0~4 或 SLOT_INIT_POS, int 类型
 *------------------------------------------------------------------*/
 
-__task void Task_SelectSlot(void *argv)
+__task void SelectSlotTask(void *argv)
 {
     int ret, targetSlot = *(int*)argv;
 
     _appStatus.deviceStat = DEVICE_BUSY;
-    ret = PositionSlot(_appStatus.currentSlot, targetSlot);
+	
+	ret = ResetCam(DIR_BACKWARD_OR_DOWN);
+	if (ret == 0)
+		ret = PositionSlot(_appStatus.currentSlot, targetSlot);
 
     if (ret != 0)
     {
@@ -301,20 +321,12 @@ __task void Task_SelectSlot(void *argv)
 * 吞卡或退卡
 *------------------------------------------------------------------*/
 
-__task void Task_MoveCard( void *argv )
+__task void MoveCardTask( void *argv )
 {
     MoveMode mode = (MoveMode)((int*)argv)[0]; // 移动方式
     ControlParameters *cp = (ControlParameters*)(((int*)argv)[1]); // 控制参数
-
-    int retryTimesMax = cp->retryTimes + 1; // 最大重试次数,
-    // +1 是把第一次执行也包含进来, 便于逻辑处理
-
-    int retryCount = 0; // 重试计数
-    BOOL forceAbort = __FALSE;
     uint16_t senFlag, prevVal, curVal = 0;
     uint32_t t0, timeout; // 毫秒单位
-
-    os_tsk_prio_self(PRIO_NORMAL);
 
     switch (mode)
     {
@@ -324,47 +336,34 @@ __task void Task_MoveCard( void *argv )
         // cp->moveInDelay 表示进卡延时, 单位是100毫秒
         timeout = cp->moveInTimeOut * 1000;
         os_dly_wait(cp->moveInDelay * 100);
+
+        Stepper_Start(STEPPER_IN_OUT,
+                      DIR_BACKWARD_OR_DOWN,
+                      INT32_MAX);
         break;
 
     case MOVE_TO_READER:
         timeout = cp->moveOutTimeOut * 1000;
         os_dly_wait(cp->moveOutDelay * 100);
+
+        Stepper_Start(STEPPER_IN_OUT,
+                      DIR_FORWARD_OR_UP,
+                      INT32_MAX);
         break;
     }
+
+	os_tsk_prio_self(PRIO_NORMAL);
+
+    _appStatus.deviceStat = DEVICE_BUSY;
+    _appStatus.isMovingCard = __TRUE;
 
     prevVal = Sensor_Read(SEN_GATE);
     t0 = os_time_get();
 
     for (;;)
     {
-        if (os_sem_wait(_sem_stopMoving, 1) == OS_R_OK)
-        {
-            forceAbort = __TRUE;
+        if (os_sem_wait(_sem_stopMoving, 10) == OS_R_OK)
             break;
-        }
-
-        if (!Stepper_IsRunning(STEPPER_IN_OUT))
-        {
-            if (retryCount++ >= retryTimesMax)
-                break;
-
-            if (mode == MOVE_TO_SLOT
-                    || mode == MOVE_TO_RETAINBIN)
-            {
-                Stepper_Start(STEPPER_IN_OUT,
-                              DIR_BACKWARD_OR_DOWN,
-                              MAX_STEPS_FOR_MOVE);
-            }
-            else
-            {
-                Stepper_Start(STEPPER_IN_OUT,
-                              DIR_FORWARD_OR_UP,
-                              MAX_STEPS_FOR_MOVE);
-            }
-			
-			_appStatus.deviceStat = DEVICE_BUSY;
-			_appStatus.isMovingCard = __TRUE;
-        }
 
 		curVal = Sensor_Read(SEN_GATE);
 		
@@ -389,12 +388,12 @@ __task void Task_MoveCard( void *argv )
         if (os_time_get() - t0 > timeout)
             break;
 
-        os_tsk_pass(); // 强制任务切换, 用于通信
+        os_tsk_pass();
     }
 
     Stepper_Stop(STEPPER_IN_OUT);
 
-    if (!forceAbort && (curVal & SEN_GATE))
+    if (curVal & SEN_GATE)
     {
         _appStatus.deviceStat = DEVICE_FAULT;
         _appStatus.faultCode = ERR_CARD_JAM;
@@ -418,7 +417,7 @@ __task void Task_MoveCard( void *argv )
 * 性能测试任务
 *------------------------------------------------------------------*/
 
-__task void Task_PerformanceTest(void *argv)
+__task void PerformanceTestTask(void *argv)
 {
     PerformanceData *outData = (PerformanceData*)argv;
     int ret = 0;
@@ -492,10 +491,111 @@ __task void Task_PerformanceTest(void *argv)
     else
     {
         _appStatus.deviceStat = DEVICE_IDLE;
+		_appStatus.currentSlot = SLOT_INIT_POS;
     }
 
     os_sem_send(_sem_testFinished);
     os_tsk_delete_self();
+}
+
+
+/*------------------------------------------------------------------
+* 复位设备
+*------------------------------------------------------------------*/
+
+int StartResetDevice(BOOL wait)
+{
+    os_sem_init(_sem_resetFinished, 0);
+    os_tsk_create(ResetDeviceTask, PRIO_HIGH);
+
+    if (wait)
+    {
+        os_sem_wait(_sem_resetFinished, 0xffff);
+
+        if (_appStatus.deviceStat == DEVICE_FAULT)
+            return _appStatus.faultCode;
+    }
+
+    return 0;
+}
+
+
+/*------------------------------------------------------------------
+* 启动选择卡槽任务
+*------------------------------------------------------------------*/
+
+int StartSelectSlot(int targetSlot)
+{
+    static int argv;
+    argv = targetSlot;
+
+    os_sem_init(_sem_selectFinished, 0);
+    os_tsk_create_ex(SelectSlotTask, PRIO_HIGH, &argv);
+    os_sem_wait(_sem_selectFinished, 0xffff);
+
+    if (_appStatus.deviceStat == DEVICE_FAULT)
+        return _appStatus.faultCode;
+
+    return 0;
+}
+
+
+/*------------------------------------------------------------------
+* 启动吞卡/退卡任务
+*------------------------------------------------------------------*/
+
+int StartMoveCard(MoveMode mode)
+{
+    static int argv[2];
+    static ControlParameters cp;
+
+    if (!ReadControlParameters(&cp))
+        return ERR_READ_CONTROL_PARAMETERS;
+
+    argv[0] = mode;
+    argv[1] = (int)&cp;
+
+    os_sem_init(_sem_movingFinished, 0);
+    os_sem_init(_sem_stopMoving, 0);
+
+    os_tsk_create_ex(MoveCardTask, PRIO_HIGH, &argv);
+
+    return 0;
+}
+
+
+/*------------------------------------------------------------------
+* 停止吞卡/退卡任务
+*------------------------------------------------------------------*/
+
+int StopMoveCard(void)
+{
+    if (_appStatus.isMovingCard)
+    {
+        os_sem_send(_sem_stopMoving);
+        os_sem_wait(_sem_movingFinished, 0xffff);
+    }
+	
+	return 0;
+}
+
+
+/*------------------------------------------------------------------
+* 启动性能测试任务
+*------------------------------------------------------------------*/
+
+int StartPerformanceTest(PerformanceData *outData)
+{
+    memset(outData, 0, sizeof(PerformanceData));
+
+    os_sem_init(_sem_testFinished, 0);
+    os_tsk_create_ex(PerformanceTestTask, PRIO_HIGH, outData);
+    os_sem_wait(_sem_testFinished, 0xffff);
+
+    if (_appStatus.deviceStat == DEVICE_FAULT)
+        return _appStatus.faultCode;
+
+    return 0;
 }
 
 
@@ -525,110 +625,35 @@ void UpdateSensorData(void)
 
 
 /*------------------------------------------------------------------
-* 复位设备
+* 复位凸轮
 *------------------------------------------------------------------*/
 
-int StartResetDevice(BOOL wait)
+int ResetCam(Direction dir)
 {
-    os_sem_init(_sem_resetFinished, 0);
-    os_tsk_create(Task_ResetDevice, PRIO_HIGH);
+    uint16_t senVal = Sensor_Read(SEN_CAM);
+	if (senVal)
+		return 0;
+	
+    Stepper_Start(STEPPER_IN_OUT,
+                  dir,
+                  STEPS_PER_REV * 2);
 
-    if (wait)
+    while (1)
     {
-        os_sem_wait(_sem_resetFinished, 0xffff);
+        senVal = Sensor_Read(SEN_CAM);
+        if (senVal)
+            break;
 
-        if (_appStatus.deviceStat == DEVICE_FAULT)
-            return _appStatus.faultCode;
+        if (!Stepper_IsRunning(STEPPER_IN_OUT))
+            return ERR_SENSOR;
+		
+		os_dly_wait(10);
     }
 
-    return 0;
-}
-
-
-/*------------------------------------------------------------------
-* 启动选择卡槽任务
-*------------------------------------------------------------------*/
-
-int StartSelectSlot(int targetSlot)
-{
-    static int argv;
-    argv = targetSlot;
-
-    os_sem_init(_sem_selectFinished, 0);
-    os_tsk_create_ex(Task_SelectSlot, PRIO_HIGH, &argv);
-    os_sem_wait(_sem_selectFinished, 0xffff);
-
-    if (_appStatus.deviceStat == DEVICE_FAULT)
-        return _appStatus.faultCode;
+    Stepper_Stop(STEPPER_IN_OUT);
 
     return 0;
 }
-
-
-/*------------------------------------------------------------------
-* 启动吞卡/退卡任务
-*------------------------------------------------------------------*/
-
-int StartMoveCard(MoveMode mode, BOOL wait)
-{
-    static int argv[2];
-    static ControlParameters cp;
-
-    if (!ReadControlParameters(&cp))
-        return ERR_READ_CONTROL_PARAMETERS;
-
-    argv[0] = mode;
-    argv[1] = (int)&cp;
-
-    os_sem_init(_sem_movingFinished, 0);
-    os_sem_init(_sem_stopMoving, 0);
-
-    os_tsk_create_ex(Task_MoveCard, PRIO_HIGH, &argv);
-
-    if (wait)
-    {
-        os_sem_wait(_sem_movingFinished, 0xffff);
-
-        if (_appStatus.deviceStat == DEVICE_FAULT)
-            return _appStatus.faultCode;
-    }
-
-    return 0;
-}
-
-
-/*------------------------------------------------------------------
-* 停止吞卡/退卡任务
-*------------------------------------------------------------------*/
-
-void StopMoveCard(void)
-{
-    if (_appStatus.isMovingCard)
-    {
-        os_sem_send(_sem_stopMoving);
-        os_sem_wait(_sem_movingFinished, 0xffff);
-    }
-}
-
-
-/*------------------------------------------------------------------
-* 启动性能测试任务
-*------------------------------------------------------------------*/
-
-int StartPerformanceTest(PerformanceData *outData)
-{
-    memset(outData, 0, sizeof(PerformanceData));
-
-    os_sem_init(_sem_testFinished, 0);
-    os_tsk_create_ex(Task_PerformanceTest, PRIO_HIGH, outData);
-    os_sem_wait(_sem_testFinished, 0xffff);
-
-    if (_appStatus.deviceStat == DEVICE_FAULT)
-        return _appStatus.faultCode;
-
-    return 0;
-}
-
 
 
 /*------------------------------------------------------------------
@@ -651,6 +676,8 @@ int SetStackToTop(void)
 
         if (!Stepper_IsRunning(STEPPER_LIFTING))
             return ERR_SENSOR;
+		
+		os_dly_wait(50);
     }
 
     Stepper_Stop(STEPPER_LIFTING);
@@ -689,6 +716,8 @@ int SetStackToBottom(void)
 
         if (!Stepper_IsRunning(STEPPER_LIFTING))
             return ERR_SENSOR;
+		
+		os_dly_wait(50);
     }
 
     Stepper_Stop(STEPPER_LIFTING);
@@ -755,6 +784,8 @@ int PositionSlot(int curSlot, int targetSlot)
 
             if (!Stepper_IsRunning(STEPPER_LIFTING))
                 return ERR_SENSOR;
+			
+			os_dly_wait(50);
         }
 
         Stepper_Stop(STEPPER_LIFTING);

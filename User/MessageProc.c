@@ -61,7 +61,7 @@ BOOL WaitForMessage(void)
             }
         }
 
-        if (os_time_get() - t0 > 50)
+        if (os_time_get() - t0 > 10)
             return __FALSE;
     }
 

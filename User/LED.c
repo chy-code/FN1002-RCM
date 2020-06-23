@@ -1,11 +1,11 @@
 #include "led.h"
 #include "stm32f10x.h"
 
-// LED GPIO 端口和引脚定义
+// LED 硬件配置
 const struct
 {
-    GPIO_TypeDef* GPIO;
-    uint16_t GPIO_Pin;
+    GPIO_TypeDef* Port;
+    uint16_t Pin;
 } _cLEDs[] =
 {
     // 保持定义顺序与 LEDType 顺序一致
@@ -22,7 +22,7 @@ const struct
 };
 
 
-void LEDs_Configuration(void)
+void LEDs_Init(void)
 {
     RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOB
                             | RCC_APB2Periph_GPIOC
@@ -37,8 +37,8 @@ void LEDs_Configuration(void)
 
     for (int i = 0; i < NUM_LEDs; i++)
     {
-        GPIO_InitStruct.GPIO_Pin = _cLEDs[i].GPIO_Pin;
-        GPIO_Init(_cLEDs[i].GPIO, &GPIO_InitStruct);
+        GPIO_InitStruct.GPIO_Pin = _cLEDs[i].Pin;
+        GPIO_Init(_cLEDs[i].Port, &GPIO_InitStruct);
 
         LED_On((LEDType)i);
     }
@@ -47,26 +47,26 @@ void LEDs_Configuration(void)
 
 void LED_On(LEDType type)
 {
-    if (type == LED1 || type == LED2)
-        GPIO_SetBits(_cLEDs[type].GPIO, _cLEDs[type].GPIO_Pin);
+    if (type == LED_RED || type == LED_GREEN)
+        GPIO_SetBits(_cLEDs[type].Port, _cLEDs[type].Pin);
     else
-        GPIO_ResetBits(_cLEDs[type].GPIO, _cLEDs[type].GPIO_Pin);
+        GPIO_ResetBits(_cLEDs[type].Port, _cLEDs[type].Pin);
 }
 
 
 void LED_Off(LEDType type)
 {
-    if (type == LED1 || type == LED2)
-        GPIO_ResetBits(_cLEDs[type].GPIO, _cLEDs[type].GPIO_Pin);
+    if (type == LED_RED || type == LED_GREEN)
+        GPIO_ResetBits(_cLEDs[type].Port, _cLEDs[type].Pin);
     else
-        GPIO_SetBits(_cLEDs[type].GPIO, _cLEDs[type].GPIO_Pin);
+        GPIO_SetBits(_cLEDs[type].Port, _cLEDs[type].Pin);
 }
 
 
 void LED_ToggleState(LEDType type)
 {
-    GPIO_TypeDef *GPIO = _cLEDs[type].GPIO;
-    GPIO->ODR ^= _cLEDs[type].GPIO_Pin;
+    GPIO_TypeDef *GPIO = _cLEDs[type].Port;
+    GPIO->ODR ^= _cLEDs[type].Pin;
 }
 
 

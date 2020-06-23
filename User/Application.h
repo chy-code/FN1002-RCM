@@ -79,15 +79,13 @@ extern const AppStatus * const c_appStatusRef;
 extern const SensorData * const c_sensorDataRef;
 extern const VersionData c_verData;
 
-// 公共函数声明
-
-void UpdateSensorData(void);
+// 函数声明
 
 int StartResetDevice(BOOL wait);
 int StartSelectSlot(int targetSlot);
 
-int StartMoveCard(MoveMode mode, BOOL wait);
-void StopMoveCard(void);
+int StartMoveCard(MoveMode mode);
+int StopMoveCard(void);
 
 int StartPerformanceTest(PerformanceData *outData);
 

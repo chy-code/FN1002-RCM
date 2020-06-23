@@ -26,7 +26,7 @@
 					| SEN_SLOT5 )
 
 
-void Sensors_Configuration(void);
+void Sensors_Init(void);
 uint16_t Sensor_Read(uint16_t which);
 
 #endif

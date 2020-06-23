@@ -408,6 +408,11 @@
               <FilePath>.\User\IOBuffer.c</FilePath>
             </File>
             <File>
+              <FileName>IWDG.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\IWDG.c</FilePath>
+            </File>
+            <File>
               <FileName>LED.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\User\LED.c</FilePath>
@@ -486,6 +491,11 @@
               <FileName>IOBuffer.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\User\IOBuffer.h</FilePath>
+            </File>
+            <File>
+              <FileName>IWDG.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\IWDG.h</FilePath>
             </File>
             <File>
               <FileName>LED.h</FileName>
@@ -630,6 +640,12 @@
         </targetInfos>
       </component>
       <component Cclass="Device" Cgroup="StdPeriph Drivers" Csub="GPIO" Cvendor="Keil" Cversion="3.5.0" condition="STM32F1xx STDPERIPH RCC">
+        <package name="STM32F1xx_DFP" schemaVersion="1.4.0" url="http://www.keil.com/pack/" vendor="Keil" version="2.3.0"/>
+        <targetInfos>
+          <targetInfo name="Target 1"/>
+        </targetInfos>
+      </component>
+      <component Cclass="Device" Cgroup="StdPeriph Drivers" Csub="IWDG" Cvendor="Keil" Cversion="3.5.0" condition="STM32F1xx STDPERIPH">
         <package name="STM32F1xx_DFP" schemaVersion="1.4.0" url="http://www.keil.com/pack/" vendor="Keil" version="2.3.0"/>
         <targetInfos>
           <targetInfo name="Target 1"/>

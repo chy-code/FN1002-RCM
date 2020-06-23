@@ -4,7 +4,7 @@
 #include "Stepper.h"
 
 
-// 步进电机控制端口和引脚定义
+// 步进电机驱动器硬件配置
 const struct {
 	GPIO_TypeDef* EN_Port;
 	uint16_t EN_Pin;
@@ -30,8 +30,8 @@ const struct {
 // 步进电机控制参数
 static struct {
 	BOOL running;
-	int stepsMax;
-	int stepCount;
+	uint32_t stepsMax;
+	uint32_t stepCount;
 } _CB[] =
 { 
 	{ __FALSE, 0, 0 },
@@ -98,7 +98,7 @@ static __forceinline void TIM3_Configuration(void)
 }
 
 
-void Steppers_Configuration(void)
+void Steppers_Init(void)
 {
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA 
 							| RCC_APB2Periph_GPIOC, ENABLE);
@@ -112,7 +112,7 @@ void Steppers_Configuration(void)
 }
 
 
-void Stepper_Start(StepperType which, Direction dir, int nsteps)
+void Stepper_Start(StepperType which, Direction dir, uint32_t nsteps)
 {
 	if (!_CB[which].running)
 	{
@@ -126,13 +126,23 @@ void Stepper_Start(StepperType which, Direction dir, int nsteps)
 		
 		_CB[which].stepsMax = nsteps;
 		_CB[which].stepCount = 0;
-		_CB[which].running = __TRUE;
+
+		TIM_SetAutoreload(TIM3, 200 - 1);	//  5 kHz
 		
-		TIM_SetAutoreload(TIM3, 200 - 1);	// CLK = 72000000/72/200 = 5 kHz
-		TIM_SetCompare2(TIM3, 200 >> 1);
-			
-		TIM_ClearFlag(TIM3, TIM_FLAG_CC2);
-		TIM_ITConfig(TIM3, TIM_IT_CC2, ENABLE);
+		if (_cDrivers[which].TIM_IT == TIM_IT_CC1)
+		{
+			TIM_SetCompare1(TIM3, 200 >> 1);	
+			TIM_ClearFlag(TIM3, TIM_FLAG_CC1);
+			TIM_ITConfig(TIM3, TIM_IT_CC1, ENABLE);
+		}
+		else
+		{
+			TIM_SetCompare2(TIM3, 200 >> 1);	
+			TIM_ClearFlag(TIM3, TIM_FLAG_CC2);
+			TIM_ITConfig(TIM3, TIM_IT_CC2, ENABLE);
+		}
+		
+		_CB[which].running = __TRUE;
 	}
 	
 	if (!(TIM3->CR1 & TIM_CR1_CEN))

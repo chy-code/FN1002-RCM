@@ -18,8 +18,8 @@ typedef enum {
 } Direction;
 
 
-void Steppers_Configuration(void);
-void Stepper_Start(StepperType which, Direction dir, int nsteps);
+void Steppers_Init(void);
+void Stepper_Start(StepperType which, Direction dir, uint32_t nsteps);
 void Stepper_Stop(StepperType which);
 void Stepper_SetDirection(StepperType which, Direction dir);
 void Stepper_SetLowVelocity(StepperType which);

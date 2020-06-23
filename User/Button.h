@@ -5,6 +5,6 @@
 #include <stdint.h>
 #endif
 
-void EnableResetButton(void);
+void ResetButton_Enable(void);
 
 #endif

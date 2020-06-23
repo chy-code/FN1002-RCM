@@ -8,11 +8,6 @@
 #include "Stepper.h"
 
 
-/*
-* 以下函数,务必在返回之前设置好响应参数的长度 (outLen). 
-* 否则上位机会卡死. (上位机读数据的方法不合理)
-*/
-
 
 /**************************************************************
 * 设备初始化。
@@ -47,8 +42,10 @@ static int DeviceReset(CMDContext *ctx)
 
 static int GetDeviceStatus(CMDContext *ctx)
 {
-    UpdateSensorData();
     ctx->outLen = 68;
+	
+	// 不需要做处理, IdleTask 会更新相关状态.
+	
     return 0;
 }
 
@@ -72,7 +69,7 @@ static int SelectSlot(CMDContext *ctx)
 	
     slotNum = ctx->param[7];
 
-    if (!(slotNum >= 0 && slotNum < NUM_PHYSICAL_SLOTS))
+    if (!(slotNum >= 1 && slotNum <= NUM_PHYSICAL_SLOTS))
     {
         if (slotNum != SLOT_INIT_POS)
             return ERR_INVALID_SLOT_NUM;
@@ -80,15 +77,15 @@ static int SelectSlot(CMDContext *ctx)
 
     if (slotNum != SLOT_INIT_POS)
     {
-        if (!ReadSlotsFunc(slotsFunc))
+        if (!ReadSlotSettings(slotsFunc))
             return ERR_READ_SLOTS_FUNC;
 
-        if (slotsFunc[slotNum] == SLOT_FUNC_DISABLE)
+        if (slotsFunc[slotNum - 1] == SLOT_FUNC_DISABLE)
             return ERR_SLOT_DISABLED;
     }
 
     if (slotNum != c_appStatusRef->currentSlot)
-        return StartSelectSlot(slotNum);
+        return StartSelectSlot(slotNum - 1);
 
     return 0;
 }
@@ -100,7 +97,6 @@ static int SelectSlot(CMDContext *ctx)
 
 static int MoveCard(CMDContext *ctx)
 {
-    //uint8_t action = ctx->param[60];
     uint8_t mode = ctx->param[61];
     uint8_t curSlot = c_appStatusRef->currentSlot;
     int retainCount = 0;
@@ -111,14 +107,16 @@ static int MoveCard(CMDContext *ctx)
     if (!c_appStatusRef->reseted)
         return ERR_NO_RESET;
 
-	if (mode != 0 && c_appStatusRef->deviceStat == DEVICE_BUSY)
-        return ERR_COMMAND_SEQUENCE;
-		
+	if (mode != 0)
+	{ 
+		if (c_appStatusRef->deviceStat == DEVICE_BUSY)
+			return ERR_COMMAND_SEQUENCE;
+	}
+
     switch (mode)
     {
     case 0:
-        StopMoveCard();
-        break;
+        return StopMoveCard();
 
     case 1: // 吞卡
         if (curSlot == SLOT_INIT_POS)
@@ -127,7 +125,7 @@ static int MoveCard(CMDContext *ctx)
         if (c_sensorDataRef->isCardInSlots[curSlot])
             return ERR_CARD_IN_SLOTn + curSlot;
 
-        return StartMoveCard(MOVE_TO_SLOT, __FALSE);
+        return StartMoveCard(MOVE_TO_SLOT);
 
     case 2:	// 退卡
         if (curSlot == SLOT_INIT_POS)
@@ -136,7 +134,7 @@ static int MoveCard(CMDContext *ctx)
         if (!c_sensorDataRef->isCardInSlots[curSlot])
             return ERR_NO_CARD_IN_SLOTn + curSlot;
 
-        return StartMoveCard(MOVE_TO_READER, __FALSE);
+        return StartMoveCard(MOVE_TO_READER);
 
     case 3: // 永久吞卡
 
@@ -155,7 +153,7 @@ static int MoveCard(CMDContext *ctx)
         if (retainCount >= cp.retainCapacity)
             return ERR_RETAINBIN_FULL;
 
-        return StartMoveCard(MOVE_TO_RETAINBIN, __FALSE);
+        return StartMoveCard(MOVE_TO_RETAINBIN);
     }
 
     return 0;
@@ -173,7 +171,7 @@ static int GetStatusForSlots(CMDContext *ctx)
 
     ctx->outLen = 68;
 
-    if (!ReadSlotsFunc(slotsFunc))
+    if (!ReadSlotSettings(slotsFunc))
         return ERR_READ_SLOTS_FUNC;
 
     for (int i = 0; i < NUM_PHYSICAL_SLOTS; i++)
@@ -202,16 +200,16 @@ static int SetCardInfoForSlot(CMDContext *ctx)
 
     ctx->outLen = 68;
 
-    if (slotNum >= NUM_PHYSICAL_SLOTS)
+    if (! (slotNum >= 1 && slotNum <= NUM_PHYSICAL_SLOTS))
         return ERR_INVALID_SLOT_NUM;
 
-    CardInfoA cardInfo;
+    CardInfo cardInfo;
     memcpy(cardInfo.cardnum, &ctx->param[8], SZ_CARD_NUM);
     memcpy(cardInfo.idinfo, &ctx->param[8 + SZ_CARD_NUM], SZ_ID_INFO);
     cardInfo.valid = __TRUE;
 
-    if (! ProgramCardInfoA(slotNum, &cardInfo))
-        return ERR_PROGRAM_CARD_INFO_A;
+    if (! ProgramCardInfoSlot(slotNum - 1, &cardInfo))
+        return ERR_PROGRAM_CARD_INFO;
 
     return 0;
 }
@@ -229,42 +227,15 @@ static int GetCardInfoForSlots(CMDContext *ctx)
 
     for (int i = 0; i < NUM_RCM_SLOTS; i++)
     {
-        if (!ReadCardInfoA(i, (CardInfoA*)&ctx->out[rlen]))
-            return ERR_READ_CARD_INFO_A;
+        if (!ReadCardInfoSlot(i, (CardInfo*)&ctx->out[rlen]))
+            return ERR_READ_CARD_INFO;
 
-        rlen += sizeof(CardInfoA);
+        rlen += sizeof(CardInfo);
     }
 
     return 0;
 }
 
-
-/**************************************************************
-* 获取回收区中的卡片信息。
-***************************************************************/
-
-static int GetCardInfoRetained(CMDContext *ctx)
-{
-    int rlen = 0;
-    int retainCount = 0;
-
-    ReadRetainCount(&retainCount);
-
-    ctx->out[rlen] = (uint8_t)retainCount;
-    rlen++;
-
-    for (int i = 0; i < retainCount; i++)
-    {
-        if (!ReadCardInfoB(i, (CardInfoB*)&ctx->out[rlen]))
-            return ERR_READ_CARD_INFO_B;
-
-        rlen += sizeof(CardInfoB);
-    }
-
-    ctx->outLen = rlen;
-
-    return 0;
-}
 
 
 /**************************************************************
@@ -296,38 +267,6 @@ static int UpdateRetainCount(CMDContext *ctx)
 
     ctx->out[47] = (uint8_t)retainCount;
 
-    return 0;
-}
-
-
-/**************************************************************
-* 清卡。
-***************************************************************/
-static int Clean(CMDContext *ctx)
-{
-    ctx->outLen = 68;
-	
-	if (ctx->param[7] == 0)
-	{
-		int retainCount = 0;
-		ReadRetainCount(&retainCount);
-
-		for (int i = 0; i < retainCount; i++)
-		{
-			if (!CleanCardInfoB(i))
-				return ERR_PROGRAM_CARD_INFO_B;
-		}
-	}
-	else
-	{
-		int slotNum = ctx->param[7] - 1;
-		if (ctx->param[7] >= NUM_PHYSICAL_SLOTS)
-			return ERR_INVALID_SLOT_NUM;
-		
-		if (!ClearCardInfoA(slotNum))
-			return ERR_PROGRAM_CARD_INFO_A;
-	}
-	
     return 0;
 }
 
@@ -491,7 +430,7 @@ static int SetFunctionAllSlots(CMDContext *ctx)
 {
     ctx->outLen = 36;
 
-    if (!ProgramSlotsFunc((uint16_t*)&ctx->out[7]))
+    if (!ProgramSlotSettings((uint16_t*)&ctx->out[7]))
         return ERR_PROGRAM_SLOTS_FUNC;
 
     return 0;
@@ -552,14 +491,8 @@ int ExecCommand(uint8_t cc, CMDContext *ctx)
     case 0x46:
         ret = GetCardInfoForSlots(ctx);
         break;
-    case 0x52:
-        ret = GetCardInfoRetained(ctx);
-        break;
     case 0x55:
         ret = UpdateRetainCount(ctx);
-        break;
-    case 0x43:
-        ret = Clean(ctx);
         break;
     case 0x56:
         ret = GetVersionInfo(ctx);
