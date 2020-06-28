@@ -69,6 +69,10 @@ void Sensors_Init(void)
 }
 
 
+/*
+* which 为传感器索引的组合.
+* 如果相应传感器值为1, 则返回值中相应的传感器索引位为1.
+*/
 
 uint16_t Sensor_Read(uint16_t which)
 {

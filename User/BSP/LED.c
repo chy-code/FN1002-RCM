@@ -8,7 +8,7 @@ const struct
     uint16_t Pin;
 } _cLEDs[] =
 {
-    // 保持定义顺序与 LEDType 顺序一致
+    // 顺序与 LEDType 一致
     { GPIOB, GPIO_Pin_7 },	// PB7 LED ERR
     { GPIOB, GPIO_Pin_6 },	// PB6 LED STA
     { GPIOB, GPIO_Pin_5 },	// PB5 LED SRV

@@ -20,10 +20,10 @@
 #include "USB_Config.c"
 
 
-uint8_t outBuf[USBD_HID_OUTREPORT_MAX_SZ];
-
 IOBuffer HID_InQue = { 0 };
 uint8_t feat;
+uint8_t outBuf[USBD_HID_OUTREPORT_MAX_SZ];
+
 
 void User_HID_Send(uint8_t *data, int datalen)
 {

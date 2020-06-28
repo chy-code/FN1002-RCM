@@ -103,7 +103,7 @@ int main()
     LEDs_Init();
     Sensors_Init();
     Steppers_Init();
-    ResetButton_Enable(); // 使能复位按键, 当按下时复位
+    ResetButton_Enable(); // 使能复位按键, 按下时复位MCU
     IWDG_Init(IWDG_PRE_CYCLE_6P4, 1562); // 喂狗间隔 6.4ms * 1562 = 10s
 
     InitUserDataROM();
@@ -117,10 +117,10 @@ int main()
 *------------------------------------------------------------------*/
 __task void InitTask(void)
 {
-    os_tsk_prio_self(0xff); // 提升当前任务最高优先级
+    os_tsk_prio_self(0xff); 
     usbd_init();	// 初始化 USB 库
     usbd_connect(__TRUE); // 连接 USB 设备
-    os_tsk_prio_self(1); // 降低当前任务优先级
+    os_tsk_prio_self(1);
 
     // 创建 Idle 和通信任务
     os_tsk_create(IdleTask, PRIO_IDLE);
@@ -141,13 +141,13 @@ __task void CommunicationTask(void)
     for (;;)
     {
         if (WaitForMessage())
-		{
+        {
             HandleCurrentMessage();
-		}
+        }
         else
-		{
+        {
             os_tsk_pass();
-		}
+        }
     }
 }
 
@@ -195,8 +195,8 @@ __task void IdleTask(void)
 
 
         LED_ToggleState(LED_GREEN);
-		IWDG_Feed();
-		
+        IWDG_Feed();
+
         os_dly_wait(500);
     }
 }
@@ -211,14 +211,14 @@ __task void ResetDeviceTask(void)
     int ret = 0;
     uint16_t prevVal, curVal;
 
-	 _appStatus.deviceStat = DEVICE_BUSY;
+    _appStatus.deviceStat = DEVICE_BUSY;
     curVal = Sensor_Read(SEN_GATE);
-	
+
     if (curVal) // 进卡口处有卡
     {
         prevVal = Sensor_Read(SEN_SLOTS); // 获取所有卡槽的状态
-		
-		// 启动步进电机
+
+        // 启动步进电机
         Stepper_Start(STEPPER_IN_OUT, DIR_BACKWARD_OR_DOWN, STEPS_PER_REV * 20);
 
         while (1)
@@ -244,34 +244,34 @@ __task void ResetDeviceTask(void)
                 ret = ERR_CARD_JAM;
                 goto END;
             }
-			
-			os_dly_wait(50);
+
+            os_dly_wait(50);
         }
     }
 
 NEXT_STEP:
-	ret = ResetCam(DIR_BACKWARD_OR_DOWN);
-	if (ret == 0)
-	{
-		curVal = Sensor_Read(SEN_TOP);
-		if (!curVal)
-		{
-			ret = SetStackToTop();
-		}
-		else
-		{
-			ret = SetStackToBottom();
-			if (ret == 0)
-				ret = SetStackToTop();
-		}
-	}
+    ret = ResetCam(DIR_BACKWARD_OR_DOWN);
+    if (ret == 0)
+    {
+        curVal = Sensor_Read(SEN_TOP);
+        if (!curVal)
+        {
+            ret = SetStackToTop();
+        }
+        else
+        {
+            ret = SetStackToBottom();
+            if (ret == 0)
+                ret = SetStackToTop();
+        }
+    }
 
 END:
     if (ret == 0)
     {
         _appStatus.deviceStat = DEVICE_IDLE;
         _appStatus.currentSlot = SLOT_INIT_POS;
-		
+
         if (!_appStatus.reseted)
             _appStatus.reseted = __TRUE;
     }
@@ -296,10 +296,10 @@ __task void SelectSlotTask(void *argv)
     int ret, targetSlot = *(int*)argv;
 
     _appStatus.deviceStat = DEVICE_BUSY;
-	
-	ret = ResetCam(DIR_BACKWARD_OR_DOWN);
-	if (ret == 0)
-		ret = PositionSlot(_appStatus.currentSlot, targetSlot);
+
+    ret = ResetCam(DIR_BACKWARD_OR_DOWN);
+    if (ret == 0)
+        ret = PositionSlot(_appStatus.currentSlot, targetSlot);
 
     if (ret != 0)
     {
@@ -352,7 +352,7 @@ __task void MoveCardTask( void *argv )
         break;
     }
 
-	os_tsk_prio_self(PRIO_NORMAL);
+    os_tsk_prio_self(PRIO_NORMAL);
 
     _appStatus.deviceStat = DEVICE_BUSY;
     _appStatus.isMovingCard = __TRUE;
@@ -365,13 +365,13 @@ __task void MoveCardTask( void *argv )
         if (os_sem_wait(_sem_stopMoving, 10) == OS_R_OK)
             break;
 
-		curVal = Sensor_Read(SEN_GATE);
-		
+        curVal = Sensor_Read(SEN_GATE);
+
         if (mode == MOVE_TO_SLOT)
         {
-			if (prevVal && !curVal)
-				Stepper_SetLowVelocity(STEPPER_IN_OUT);
-			
+            if (prevVal && !curVal)
+                Stepper_SetLowVelocity(STEPPER_IN_OUT);
+
             senFlag = _cSlotSenFlags[_appStatus.currentSlot];
             curVal = Sensor_Read(senFlag);
             if (curVal & senFlag)
@@ -401,9 +401,9 @@ __task void MoveCardTask( void *argv )
     else
     {
         _appStatus.deviceStat = DEVICE_IDLE;
-		
-		if (mode == MOVE_TO_READER)
-			_appStatus.ejectFlag = __TRUE;
+
+        if (mode == MOVE_TO_READER)
+            _appStatus.ejectFlag = __TRUE;
     }
 
     _appStatus.isMovingCard = __FALSE;
@@ -422,19 +422,19 @@ __task void PerformanceTestTask(void *argv)
     PerformanceData *outData = (PerformanceData*)argv;
     int ret = 0;
     uint32_t t0;
-	uint16_t senVal;
+    uint16_t senVal;
 
     _appStatus.deviceStat = DEVICE_BUSY;
 
     do
     {
-		senVal = Sensor_Read(SEN_TOP);
-		if (!senVal)
-		{
-			ret = SetStackToTop();
-			if (ret != 0)
-				break;
-		}
+        senVal = Sensor_Read(SEN_TOP);
+        if (!senVal)
+        {
+            ret = SetStackToTop();
+            if (ret != 0)
+                break;
+        }
 
         t0 = os_time_get();
         ret = PositionSlot(SLOT_INIT_POS, 0);
@@ -491,7 +491,7 @@ __task void PerformanceTestTask(void *argv)
     else
     {
         _appStatus.deviceStat = DEVICE_IDLE;
-		_appStatus.currentSlot = SLOT_INIT_POS;
+        _appStatus.currentSlot = SLOT_INIT_POS;
     }
 
     os_sem_send(_sem_testFinished);
@@ -575,8 +575,8 @@ int StopMoveCard(void)
         os_sem_send(_sem_stopMoving);
         os_sem_wait(_sem_movingFinished, 0xffff);
     }
-	
-	return 0;
+
+    return 0;
 }
 
 
@@ -631,9 +631,9 @@ void UpdateSensorData(void)
 int ResetCam(Direction dir)
 {
     uint16_t senVal = Sensor_Read(SEN_CAM);
-	if (senVal)
-		return 0;
-	
+    if (senVal)
+        return 0;
+
     Stepper_Start(STEPPER_IN_OUT,
                   dir,
                   STEPS_PER_REV * 2);
@@ -646,8 +646,8 @@ int ResetCam(Direction dir)
 
         if (!Stepper_IsRunning(STEPPER_IN_OUT))
             return ERR_SENSOR;
-		
-		os_dly_wait(10);
+
+        os_dly_wait(10);
     }
 
     Stepper_Stop(STEPPER_IN_OUT);
@@ -663,7 +663,7 @@ int ResetCam(Direction dir)
 int SetStackToTop(void)
 {
     uint16_t senVal;
-	
+
     Stepper_Start(STEPPER_LIFTING,
                   DIR_FORWARD_OR_UP,
                   MAX_STEPS_FOR_LIFTING);
@@ -676,8 +676,8 @@ int SetStackToTop(void)
 
         if (!Stepper_IsRunning(STEPPER_LIFTING))
             return ERR_SENSOR;
-		
-		os_dly_wait(50);
+
+        os_dly_wait(50);
     }
 
     Stepper_Stop(STEPPER_LIFTING);
@@ -688,7 +688,6 @@ int SetStackToTop(void)
 
 /*------------------------------------------------------------------
 * 设置卡栈到底部
-* 在调用该函数之前需保证卡栈在顶部.
 *------------------------------------------------------------------*/
 
 int SetStackToBottom(void)
@@ -716,8 +715,8 @@ int SetStackToBottom(void)
 
         if (!Stepper_IsRunning(STEPPER_LIFTING))
             return ERR_SENSOR;
-		
-		os_dly_wait(50);
+
+        os_dly_wait(50);
     }
 
     Stepper_Stop(STEPPER_LIFTING);
@@ -784,8 +783,8 @@ int PositionSlot(int curSlot, int targetSlot)
 
             if (!Stepper_IsRunning(STEPPER_LIFTING))
                 return ERR_SENSOR;
-			
-			os_dly_wait(50);
+
+            os_dly_wait(50);
         }
 
         Stepper_Stop(STEPPER_LIFTING);

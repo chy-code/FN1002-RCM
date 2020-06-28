@@ -4,16 +4,18 @@
 #include "UserData.h"
 #include "crc16.h"
 
-#define PAGE_SIZE			1024
+#define PAGE_SIZE			1024	// 页大小
 
 #define PAGE_FLAG_SIZE		4
-#define PAGE_FLAG_VALID		0xFFFFAABB
+#define PAGE_FLAG_VALID		0xAABBCCDD
 
 
 // 数据地址
 #define USER_DATA_BASE		0x0800F000
 #define CTRL_PARAMS_BASE	(USER_DATA_BASE + 0)
 #define CARDINFO_BASE		(USER_DATA_BASE + PAGE_SIZE )
+							// 预留8页,用于保存 CardInfo
+							
 #define SLOT_SETTINGS_BASE	(USER_DATA_BASE + PAGE_SIZE * 9)
 #define DEVICE_INFO_BASE	(USER_DATA_BASE + PAGE_SIZE * 10)
 #define RETAIN_COUNT_BASE	(USER_DATA_BASE + PAGE_SIZE * 11)
@@ -48,6 +50,7 @@ static BOOL EE_IsValidPage(uint32_t pageBase);
 
 /*------------------------------------------------------------------
 * 初始化用户数据 ROM.
+* 如果数据页无效,写入默认值.
 *------------------------------------------------------------------*/
 
 BOOL InitUserDataROM(void)
@@ -100,6 +103,10 @@ BOOL InitUserDataROM(void)
 }
 
 
+/*------------------------------------------------------------------
+* 向控制参数数据区写入默认参数.
+*------------------------------------------------------------------*/
+
 BOOL ProgramDefaultControlParameters(void)
 {
     if (! EE_Write( CTRL_PARAMS_BASE,
@@ -110,6 +117,10 @@ BOOL ProgramDefaultControlParameters(void)
     return __TRUE;
 }
 
+
+/*------------------------------------------------------------------
+* 向控制参数数据区写入数据.
+*------------------------------------------------------------------*/
 
 BOOL ProgrmaControlParameters(ControlParameters *cp)
 {
@@ -122,6 +133,10 @@ BOOL ProgrmaControlParameters(ControlParameters *cp)
 }
 
 
+/*------------------------------------------------------------------
+* 向卡片信息区写入数据.
+*------------------------------------------------------------------*/
+
 BOOL ProgramCardInfoSlot(int slotNum, CardInfo *cardInfo)
 {
     if (! EE_Write( CARDINFO_BASE + slotNum * PAGE_SIZE,
@@ -132,6 +147,10 @@ BOOL ProgramCardInfoSlot(int slotNum, CardInfo *cardInfo)
     return __TRUE;
 }
 
+
+/*------------------------------------------------------------------
+* 向卡槽配置区写入数据.
+*------------------------------------------------------------------*/
 
 BOOL ProgramSlotSettings(uint16_t slotsFunc[NUM_RCM_SLOTS])
 {
@@ -144,6 +163,10 @@ BOOL ProgramSlotSettings(uint16_t slotsFunc[NUM_RCM_SLOTS])
 }
 
 
+/*------------------------------------------------------------------
+* 向设备信息区写入指定的数据.
+*------------------------------------------------------------------*/
+
 BOOL ProgramDeviceInfo(uint8_t deviceInfo[SZ_DEVICE_INFO])
 {
     if (! EE_Write( DEVICE_INFO_BASE,
@@ -154,6 +177,10 @@ BOOL ProgramDeviceInfo(uint8_t deviceInfo[SZ_DEVICE_INFO])
     return __TRUE;
 }
 
+
+/*------------------------------------------------------------------
+* 向回收计数区写入指定的数据.
+*------------------------------------------------------------------*/
 
 BOOL ProgramRetainCount(int retainCount)
 {
@@ -166,6 +193,10 @@ BOOL ProgramRetainCount(int retainCount)
 }
 
 
+/*------------------------------------------------------------------
+* 读控制参数.
+*------------------------------------------------------------------*/
+
 BOOL ReadControlParameters(ControlParameters *cp)
 {
     return EE_Read(CTRL_PARAMS_BASE,
@@ -173,6 +204,10 @@ BOOL ReadControlParameters(ControlParameters *cp)
                    sizeof(ControlParameters));
 }
 
+
+/*------------------------------------------------------------------
+* 读指定卡槽的卡片信息.
+*------------------------------------------------------------------*/
 
 BOOL ReadCardInfoSlot(int slotNum, CardInfo *cardInfo)
 {
@@ -182,6 +217,10 @@ BOOL ReadCardInfoSlot(int slotNum, CardInfo *cardInfo)
 }
 
 
+/*------------------------------------------------------------------
+* 读卡槽配置.
+*------------------------------------------------------------------*/
+
 BOOL ReadSlotSettings(uint16_t slotsFunc[NUM_RCM_SLOTS])
 {
     return EE_Read(SLOT_SETTINGS_BASE,
@@ -189,6 +228,10 @@ BOOL ReadSlotSettings(uint16_t slotsFunc[NUM_RCM_SLOTS])
                    2 * NUM_RCM_SLOTS);
 }
 
+
+/*------------------------------------------------------------------
+* 读设备信息.
+*------------------------------------------------------------------*/
 
 BOOL ReadDeviceInfo(uint8_t deviceInfo[SZ_DEVICE_INFO])
 {
@@ -198,6 +241,10 @@ BOOL ReadDeviceInfo(uint8_t deviceInfo[SZ_DEVICE_INFO])
 }
 
 
+/*------------------------------------------------------------------
+* 读回收计数.
+*------------------------------------------------------------------*/
+
 BOOL ReadRetainCount(int *retainCount)
 {
     return EE_Read(RETAIN_COUNT_BASE,
@@ -206,20 +253,30 @@ BOOL ReadRetainCount(int *retainCount)
 }
 
 
+/*------------------------------------------------------------------
+* 读 FLASH.
+* 参数: [in] pageBase   页地址
+* 		[in] var		用于保存读取的数据
+* 		[in] varSize	要读取的字节数
+* 返回值: __TRUE 成功, __FLASE 失败.
+*------------------------------------------------------------------*/
 
 BOOL EE_Read(uint32_t pageBase, void *var, size_t varSize)
 {
     uint32_t addr;
+	
+	// 获取待读取的地址
     if (!EE_PrepareRead(pageBase, varSize, &addr))
         return __FALSE;
 
     uint8_t *src = (uint8_t*)(addr);
     uint8_t *dest = (uint8_t*)var;
 
+	// 校验
     uint16_t crc1 = *(uint16_t*)(addr + varSize);
     uint16_t crc2 = CalcCRC16(0, src, varSize);
     if (crc1 != crc2)
-        return __FALSE;
+        return __FALSE; // 数据不完整
 
     while (varSize-- > 0)
         *dest++ = *src++;
@@ -227,6 +284,14 @@ BOOL EE_Read(uint32_t pageBase, void *var, size_t varSize)
     return __TRUE;
 }
 
+
+/*------------------------------------------------------------------
+* 从页尾向页头查找最近写入的数据的起始地址. 在读数据之前调用.
+* 参数:	[in ] pageBase 	页地址
+* 		[in ] varSize	要读取的字节数
+* 		[out] addr		最近写入的数据的起始地址
+* 返回值: 函数返回 __TRUE, addr 有效.
+*------------------------------------------------------------------*/
 
 BOOL EE_PrepareRead(uint32_t pageBase, size_t varSize, uint32_t *addr)
 {
@@ -241,11 +306,19 @@ BOOL EE_PrepareRead(uint32_t pageBase, size_t varSize, uint32_t *addr)
 
     *addr -= varSize + 2;
     if (*addr < startAddr)
-        return __FALSE; // 数据地址不正确
+        return __FALSE; // 地址不正确 (之前写入不正确)
 
     return __TRUE;
 }
 
+
+/*------------------------------------------------------------------
+* 写 FLASH.
+* 参数:	[in ] pageBase 	页地址
+* 		[in ] var		要写入的数据
+* 		[in ] varSize	要写入的数据的大小
+* 返回值: __TRUE 成功, __FLASE 失败.
+*------------------------------------------------------------------*/
 
 BOOL EE_Write(uint32_t pageBase, const void *var, size_t varSize)
 {
@@ -294,6 +367,14 @@ BOOL EE_Write(uint32_t pageBase, const void *var, size_t varSize)
 }
 
 
+/*------------------------------------------------------------------
+* 获取可完整写入指定大小数据的地址. 在写数据之前调用.
+* 参数:	[in ] pageBase 	页地址
+* 		[in ] bytesToWrite	要写入的数据的大小
+* 		[out] addr			写数据的起始地址
+* 返回值: FLASH_COMPLETE 成功, 其它值失败.
+*------------------------------------------------------------------*/
+
 FLASH_Status EE_PrepareWrite(uint32_t pageBase, size_t bytesToWrite, uint32_t *addr)
 {
     uint8_t format = 0;
@@ -312,7 +393,8 @@ FLASH_Status EE_PrepareWrite(uint32_t pageBase, size_t bytesToWrite, uint32_t *a
         bytesCanWrite = pageBase + PAGE_SIZE - *addr;
         if (bytesCanWrite < bytesToWrite)
         {
-            // 剩余空间不足, 重新格式化pageBase页
+            // 剩余空间不足, 无法完整写入当前数据.
+			// 需重新格式化, 然后从头开始写
             format = 1;
         }
     }
@@ -329,6 +411,10 @@ FLASH_Status EE_PrepareWrite(uint32_t pageBase, size_t bytesToWrite, uint32_t *a
 }
 
 
+/*------------------------------------------------------------------
+* 擦除指定的页并写入标志.
+*------------------------------------------------------------------*/
+
 FLASH_Status EE_FormatPage(uint32_t pageAddr)
 {
     FLASH_Status status = FLASH_ErasePage(pageAddr);
@@ -339,18 +425,26 @@ FLASH_Status EE_FormatPage(uint32_t pageAddr)
 }
 
 
+/*------------------------------------------------------------------
+* 在 pageBase 页中查找一个可写入数据的地址.
+* 注意: 在写入数据之前需检查地址是否满足要求.
+*------------------------------------------------------------------*/
+
 uint32_t EE_GetWriteAddress(uint32_t pageBase)
 {
-    uint32_t addr = pageBase + PAGE_SIZE - 2;
+    uint32_t addr = pageBase + PAGE_SIZE;
+	
+	// 从页尾向页首遍历, 如遇到不是 0xFFFF 的值, 则退出循环,
+	// 且认为从此处开始可写入数据
     while (addr  > pageBase)
     {
+		addr -= 2;
+		
         if ( *((uint16_t*)addr) != 0xFFFF)
         {
             addr += 2;
             break;
         }
-
-        addr -= 2;
     }
 
     return addr;

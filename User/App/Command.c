@@ -15,15 +15,12 @@
 
 static int DeviceReset(CMDContext *ctx)
 {
-    uint8_t b;
-
     ctx->outLen = 68; // 设置保留参数长度
 
     if (c_appStatusRef->deviceStat == DEVICE_BUSY)
         return ERR_COMMAND_SEQUENCE;
 
-    b = ctx->param[62];
-    switch (b)
+    switch (ctx->param[62])
     {
     case 0: // 复位升降梯
         return StartResetDevice(__TRUE);
@@ -383,22 +380,22 @@ static int SetControlParameters(CMDContext *ctx)
     ctx->outLen = 36;
 
     if ( !(cp->moveOutDelay <= 100) )
-        return ERR_SET_MOVE_OUT_DELAY;
+        return ERR_PARAM_MOVE_OUT_DELAY;
 
     if ( !(cp->moveOutTimeOut <= 100) )
-        return ERR_SET_MOVE_OUT_TIMEOUT;
+        return ERR_PARAM_MOVE_OUT_TIMEOUT;
 
     if ( !(cp->moveInDelay <= 100) )
-        return ERR_SET_MOVE_IN_DELAY;
+        return ERR_PARAM_MOVE_IN_DELAY;
 
     if ( !(cp->moveInTimeOut <= 100) )
-        return ERR_SET_MOVE_IN_TIMEOUT;
+        return ERR_PARAM_MOVE_IN_TIMEOUT;
 
     if ( !(cp->retryTimes <= 5) )
-        return ERR_SET_RETRY_TIMES;
+        return ERR_PARAM_RETRY_TIMES;
 
     if ( !(cp->retainCapacity >= 4 && cp->retainCapacity <= 8) )
-        return ERR_SET_RETAIN_CAPACITY;
+        return ERR_PARAM_RETAIN_CAPACITY;
 
     if ( !ProgrmaControlParameters(cp) )
         return ERR_PROGRAM_CONTROL_PARAMETERS;

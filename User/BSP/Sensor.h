@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-// 传感器索引
+// 传感器索引 
+// (不要随意变更顺序)
 #define SEN_GATE		0x800
 #define SEN_REAR_COVER	0x400
 #define SEN_CAM			0x200

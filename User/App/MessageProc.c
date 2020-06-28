@@ -30,7 +30,7 @@ void OutputStatusDetail(uint8_t *buf);
 
 /**************************************************************
 *
-* .从当前的输入队列中获取命令消息
+* .从输入队列中获取命令消息
 *
 ***************************************************************/
 
@@ -118,10 +118,6 @@ BOOL WaitForMessage(void)
 
 void HandleCurrentMessage(void)
 {
-    uint16_t crc;
-    uint16_t respMsgLen = 0;
-    uint16_t datalen;
-
     CMDContext ctx;
     ctx.param = &_cmdMsgBuf[5]; // 设置命令参数
     ctx.paramLen = _cmdMsgLen - 13; // 设置命令参数长度
@@ -129,8 +125,10 @@ void HandleCurrentMessage(void)
     ctx.outLen = 0;
 
     int ret = ExecCommand(_cmdMsgBuf[4], &ctx);
-
-    datalen = ctx.outLen + 12;
+	
+    uint16_t respMsgLen = 0;
+    uint16_t datalen = ctx.outLen + 12;
+	
     _respMsgBuf[respMsgLen++] = CHAR_ACK;
     _respMsgBuf[respMsgLen++] = CHAR_STX;
     _respMsgBuf[respMsgLen++] = (uint8_t)(datalen);
@@ -166,7 +164,7 @@ void HandleCurrentMessage(void)
     _respMsgBuf[respMsgLen++] = CHAR_ACK;
     _respMsgBuf[respMsgLen++] = CHAR_ETX;
 
-    crc = CalcCRC16(crc, _respMsgBuf, respMsgLen);
+    uint16_t crc = CalcCRC16(crc, _respMsgBuf, respMsgLen);
     _respMsgBuf[respMsgLen++] = (uint8_t)crc;
     _respMsgBuf[respMsgLen++] = (uint8_t)(crc >> 8);
 
