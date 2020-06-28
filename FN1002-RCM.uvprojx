@@ -338,7 +338,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>C:\Keil_v5\ARM\RV31\INC;C:\Keil_v5\ARM\RL\USB\INC</IncludePath>
+              <IncludePath>C:\Keil_v5\ARM\RV31\INC;C:\Keil_v5\ARM\RL\USB\INC;.\User\BSP;.\User\Utils</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -380,197 +380,197 @@
       </TargetOption>
       <Groups>
         <Group>
-          <GroupName>User Source</GroupName>
+          <GroupName>App Source</GroupName>
           <Files>
             <File>
               <FileName>Application.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\User\Application.c</FilePath>
-            </File>
-            <File>
-              <FileName>Button.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\Button.c</FilePath>
+              <FilePath>.\User\App\Application.c</FilePath>
             </File>
             <File>
               <FileName>Command.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\User\Command.c</FilePath>
-            </File>
-            <File>
-              <FileName>crc16.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\crc16.c</FilePath>
-            </File>
-            <File>
-              <FileName>IOBuffer.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\IOBuffer.c</FilePath>
-            </File>
-            <File>
-              <FileName>IWDG.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\IWDG.c</FilePath>
-            </File>
-            <File>
-              <FileName>LED.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\LED.c</FilePath>
-            </File>
-            <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\main.c</FilePath>
+              <FilePath>.\User\App\Command.c</FilePath>
             </File>
             <File>
               <FileName>MessageProc.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\User\MessageProc.c</FilePath>
-            </File>
-            <File>
-              <FileName>Sensor.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\Sensor.c</FilePath>
-            </File>
-            <File>
-              <FileName>Stepper.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\Stepper.c</FilePath>
-            </File>
-            <File>
-              <FileName>USART.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\USART.c</FilePath>
-            </File>
-            <File>
-              <FileName>USBD_STM32F103.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\USBD_STM32F103.c</FilePath>
-            </File>
-            <File>
-              <FileName>USBD_User_HID.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\USBD_User_HID.c</FilePath>
+              <FilePath>.\User\App\MessageProc.c</FilePath>
             </File>
             <File>
               <FileName>UserData.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\User\UserData.c</FilePath>
+              <FilePath>.\User\App\UserData.c</FilePath>
+            </File>
+            <File>
+              <FileName>RTX_Conf_CM.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\App\RTX_Conf_CM.c</FilePath>
             </File>
           </Files>
         </Group>
         <Group>
-          <GroupName>User Head</GroupName>
+          <GroupName>App Head</GroupName>
           <Files>
             <File>
               <FileName>Application.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\User\Application.h</FilePath>
-            </File>
-            <File>
-              <FileName>Button.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\Button.h</FilePath>
+              <FilePath>.\User\App\Application.h</FilePath>
             </File>
             <File>
               <FileName>Command.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\User\Command.h</FilePath>
-            </File>
-            <File>
-              <FileName>crc16.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\crc16.h</FilePath>
+              <FilePath>.\User\App\Command.h</FilePath>
             </File>
             <File>
               <FileName>errors.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\User\errors.h</FilePath>
-            </File>
-            <File>
-              <FileName>IOBuffer.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\IOBuffer.h</FilePath>
-            </File>
-            <File>
-              <FileName>IWDG.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\IWDG.h</FilePath>
-            </File>
-            <File>
-              <FileName>LED.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\LED.h</FilePath>
+              <FilePath>.\User\App\errors.h</FilePath>
             </File>
             <File>
               <FileName>MessageProc.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\User\MessageProc.h</FilePath>
-            </File>
-            <File>
-              <FileName>Sensor.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\Sensor.h</FilePath>
-            </File>
-            <File>
-              <FileName>Stepper.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\Stepper.h</FilePath>
-            </File>
-            <File>
-              <FileName>USART.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\USART.h</FilePath>
-            </File>
-            <File>
-              <FileName>USB_Reg.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\USB_Reg.h</FilePath>
-            </File>
-            <File>
-              <FileName>USBD_User_HID.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\User\USBD_User_HID.h</FilePath>
+              <FilePath>.\User\App\MessageProc.h</FilePath>
             </File>
             <File>
               <FileName>UserData.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\User\UserData.h</FilePath>
+              <FilePath>.\User\App\UserData.h</FilePath>
             </File>
           </Files>
         </Group>
         <Group>
-          <GroupName>RTX Configuration</GroupName>
+          <GroupName>BSP Source</GroupName>
           <Files>
             <File>
-              <FileName>RTX_Conf_CM.c</FileName>
+              <FileName>Button.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\User\RTX_Conf_CM.c</FilePath>
+              <FilePath>.\User\BSP\Button.c</FilePath>
             </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>USB Configuration</GroupName>
-          <Files>
             <File>
-              <FileName>USB_Config.c</FileName>
+              <FileName>IWDG.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\User\USB_Config.c</FilePath>
+              <FilePath>.\User\BSP\IWDG.c</FilePath>
             </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>USB RTX Support</GroupName>
-          <Files>
+            <File>
+              <FileName>LED.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\BSP\LED.c</FilePath>
+            </File>
+            <File>
+              <FileName>Sensor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\BSP\Sensor.c</FilePath>
+            </File>
+            <File>
+              <FileName>Stepper.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\BSP\Stepper.c</FilePath>
+            </File>
             <File>
               <FileName>SVC_Table.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\User\SVC_Table.s</FilePath>
+              <FilePath>.\User\BSP\SVC_Table.s</FilePath>
+            </File>
+            <File>
+              <FileName>USART.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\BSP\USART.c</FilePath>
+            </File>
+            <File>
+              <FileName>USBD_STM32F103.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\BSP\USBD_STM32F103.c</FilePath>
+            </File>
+            <File>
+              <FileName>USBD_User_HID.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\BSP\USBD_User_HID.c</FilePath>
+            </File>
+            <File>
+              <FileName>USB_Config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\BSP\USB_Config.c</FilePath>
             </File>
           </Files>
         </Group>
         <Group>
-          <GroupName>External Library</GroupName>
+          <GroupName>BSP Head</GroupName>
+          <Files>
+            <File>
+              <FileName>Button.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\BSP\Button.h</FilePath>
+            </File>
+            <File>
+              <FileName>IWDG.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\BSP\IWDG.h</FilePath>
+            </File>
+            <File>
+              <FileName>LED.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\BSP\LED.h</FilePath>
+            </File>
+            <File>
+              <FileName>Sensor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\BSP\Sensor.h</FilePath>
+            </File>
+            <File>
+              <FileName>Stepper.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\BSP\Stepper.h</FilePath>
+            </File>
+            <File>
+              <FileName>USART.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\BSP\USART.h</FilePath>
+            </File>
+            <File>
+              <FileName>USB_Reg.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\BSP\USB_Reg.h</FilePath>
+            </File>
+            <File>
+              <FileName>USBD_User_HID.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\BSP\USBD_User_HID.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Utils Source</GroupName>
+          <Files>
+            <File>
+              <FileName>crc16.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\Utils\crc16.c</FilePath>
+            </File>
+            <File>
+              <FileName>IOBuffer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\Utils\IOBuffer.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Utils Head</GroupName>
+          <Files>
+            <File>
+              <FileName>crc16.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\Utils\crc16.h</FilePath>
+            </File>
+            <File>
+              <FileName>IOBuffer.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\Utils\IOBuffer.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Library</GroupName>
           <Files>
             <File>
               <FileName>RV31\LIB\USB_CM3.lib</FileName>
